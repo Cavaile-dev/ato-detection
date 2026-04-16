@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — ATO Behavioral Biometrics</title>
+    <meta name="description" content="Edit your profile while behavioral biometrics monitor typing dynamics and mouse patterns in real time.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="page-shell">
+        <div class="monitored-layout fade-in">
+
+            <!-- ── Sidebar ── -->
+            <aside class="monitored-sidebar">
+                <nav class="panel panel-compact">
+                    <div class="eyebrow" style="margin-bottom:10px">Workspace</div>
+                    <div class="nav-links">
+                        <a href="/home" class="nav-link" data-page-link="/home">
+                            <span class="nav-link-icon">🏠</span> Home
+                        </a>
+                        <a href="/profile" class="nav-link active" data-page-link="/profile">
+                            <span class="nav-link-icon">👤</span> Profile
+                        </a>
+                        <a href="/settings" class="nav-link" data-page-link="/settings">
+                            <span class="nav-link-icon">⚙️</span> Settings
+                        </a>
+                        <div class="nav-divider"></div>
+                        <a href="/dashboard" class="nav-link" data-page-link="/dashboard" data-open-dashboard>
+                            <span class="nav-link-icon">📊</span> Dashboard
+                        </a>
+                        <div class="nav-divider"></div>
+                        <button class="nav-link" data-logout>
+                            <span class="nav-link-icon">🚪</span> Logout
+                        </button>
+                    </div>
+                </nav>
+
+                <!-- Score Badge -->
+                <div class="panel panel-compact score-badge">
+                    <div class="score-value-large" data-slot="anomaly-score">0.00</div>
+                    <div class="score-sub">Anomaly Score <span style="font-size:0.8em; color:var(--text-soft);">(Raw: <span data-slot="raw-anomaly-score">0.00</span>)</span></div>
+                    <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+                        <span data-slot="risk-level" class="pill pill-risk risk-low">LOW</span>
+                        <span data-slot="detected-state" class="pill pill-state state-observing">OBSERVING</span>
+                    </div>
+                </div>
+
+                <!-- Status Panel -->
+                <div class="panel panel-compact">
+                    <h3>Session Info</h3>
+                    <div class="status-row">
+                        <span class="status-label">Session</span>
+                        <span class="status-value" data-slot="session-id">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Events</span>
+                        <span class="status-value" data-slot="processed-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Window</span>
+                        <span class="status-value" data-slot="window-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Score</span>
+                        <span class="status-value" data-slot="score-ready">WARMING_UP</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Research</span>
+                        <span data-slot="research-mode" class="pill pill-research mode-live">LIVE</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ── Main Content ── -->
+            <div class="monitored-main">
+
+                <!-- MFA Banner -->
+                <div data-mfa-banner class="banner">
+                    ⚠️ HIGH-RISK session detected — adaptive response: <strong>TRIGGER MFA</strong> before sensitive actions.
+                </div>
+
+                <!-- Profile Form -->
+                <section class="panel">
+                    <h1>Edit Profile</h1>
+                    <p>Update your display information below. Every keystroke and mouse movement is captured to build a behavioral baseline for this session.</p>
+
+                    <div class="content-card" style="margin-top:12px">
+                        <h3>Personal Information</h3>
+                        <form class="stack" onsubmit="event.preventDefault()">
+                            <div class="form-grid">
+                                <label>
+                                    Display Name
+                                    <input name="display_name" type="text" placeholder="Your full name" autocomplete="name">
+                                </label>
+                                <label>
+                                    Title
+                                    <input name="title" type="text" placeholder="e.g. Fraud Operations Analyst" autocomplete="organization-title">
+                                </label>
+                                <label>
+                                    Location
+                                    <input name="location" type="text" placeholder="City" autocomplete="address-level2">
+                                </label>
+                                <label>
+                                    Department
+                                    <input name="department" type="text" placeholder="e.g. Security Operations" autocomplete="off">
+                                </label>
+                            </div>
+                            <label class="form-grid-full">
+                                Bio
+                                <textarea name="bio" placeholder="A short description of your role and interests…"></textarea>
+                            </label>
+                            <div class="form-actions">
+                                <button type="submit">Save Profile</button>
+                                <button type="button" id="load-profile-draft" class="button-ghost">Load Draft</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Contact Details -->
+                <section class="panel">
+                    <h2>Contact Details</h2>
+                    <div class="content-card">
+                        <form class="stack" onsubmit="event.preventDefault()">
+                            <div class="form-grid">
+                                <label>
+                                    Work Email
+                                    <input name="work_email" type="email" placeholder="you@company.com" autocomplete="email">
+                                </label>
+                                <label>
+                                    Phone
+                                    <input name="phone" type="tel" placeholder="+62 xxx xxxx xxxx" autocomplete="tel">
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit">Update Contact</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Scenario Simulation -->
+                <section class="panel">
+                    <h2>Research Controls</h2>
+                    <p class="muted-copy">Replay synthetic behavioral patterns. The backend is <strong>not</strong> told which label you choose — it infers risk from the event stream.</p>
+                    <div class="scenario-grid" style="margin-top:8px">
+                        <button data-simulate="NORMAL" class="button-secondary">▶ Normal Replay</button>
+                        <button data-simulate="BOT" class="button-danger">🤖 BOT Attack</button>
+                        <button data-simulate="HUMAN" class="button-danger">🧑‍💻 Human Attack</button>
+                        <button data-simulate="FAST" class="button-danger">⚡ Fast Attack</button>
+                    </div>
+                </section>
+
+                <!-- Explanation Panel -->
+                <section class="panel explanation-panel">
+                    <h2>Why Flagged</h2>
+                    <ul data-slot="explanations" class="explanation-list">
+                        <li>No explanation available yet.</li>
+                    </ul>
+                    <h3 style="margin-top:8px">Top Feature Deviations</h3>
+                    <ul data-slot="top-features" class="top-features-list">
+                        <li>Feature deviations will appear after scoring becomes active.</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeMonitoredPage } from "./session-app.js";
+        initializeMonitoredPage("/profile");
+    </script>
+</body>
+</html>

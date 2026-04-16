@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyst Dashboard — ATO Behavioral Biometrics</title>
+    <meta name="description" content="Live anomaly score graph, event timeline, risk explanation panel, and experiment feature toggles for behavioral biometrics research.">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ── Experiment Controls Panel ── */
+        .experiment-panel { margin-top: 0; }
+
+        .toggle-group { margin-bottom: 18px; }
+        .toggle-group-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted, #8892a4);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 6px 14px;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .toggle-item:hover { background: rgba(255,255,255,0.04); }
+
+        /* pill-style toggle switch */
+        .toggle-switch {
+            position: relative;
+            width: 32px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.12);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-track::after {
+            content: "";
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .toggle-switch input:checked + .toggle-track { background: #3b82f6; }
+        .toggle-switch input:checked + .toggle-track::after { transform: translateX(14px); }
+
+        .toggle-label {
+            font-size: 0.8rem;
+            color: var(--text-soft, #c0cce0);
+            cursor: pointer;
+            user-select: none;
+        }
+        .toggle-label.reserved {
+            color: var(--text-muted, #8892a4);
+            font-style: italic;
+        }
+
+        /* Active counter badge */
+        .active-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #93c5fd;
+            margin-bottom: 14px;
+        }
+        .active-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; }
+
+        /* Apply button state */
+        .btn-apply {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-apply:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-apply:active { transform: translateY(0); }
+        .btn-apply:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .toggle-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .btn-preset {
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.05);
+            color: var(--text-soft, #c0cce0);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-preset:hover { background: rgba(255,255,255,0.10); }
+
+        .toggle-save-note {
+            font-size: 0.72rem;
+            color: var(--text-muted, #8892a4);
+            margin-left: auto;
+        }
+        #toggle-status {
+            font-size: 0.75rem;
+            margin-top: 6px;
+            min-height: 18px;
+            color: #86efac;
+        }
+
+        /* Experiment log table */
+        .exp-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.76rem;
+            margin-top: 10px;
+        }
+        .exp-log-table th {
+            text-align: left;
+            padding: 5px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted, #8892a4);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.68rem;
+        }
+        .exp-log-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-soft, #c0cce0);
+            font-family: monospace;
+        }
+        .exp-log-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .decision-allow { color: #86efac; }
+        .decision-verify { color: #fde68a; }
+        .decision-deny  { color: #fca5a5; }
+        .risk-low    { color: #86efac; }
+        .risk-medium { color: #fde68a; }
+        .risk-high   { color: #fca5a5; }
+        .exp-empty { color: var(--text-muted, #8892a4); font-size: 0.8rem; padding: 12px 0; }
+
+        .exp-log-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-refresh-log {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.05);
+            color: var(--text-soft, #c0cce0);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-refresh-log:hover { background: rgba(255,255,255,0.10); }
+
+        .coverage-bar-wrap {
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.08);
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .coverage-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #6366f1);
+            transition: width 0.4s ease;
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="monitored-layout fade-in">
+
+            <!-- ── Sidebar ── -->
+            <aside class="monitored-sidebar">
+                <nav class="panel panel-compact">
+                    <div class="eyebrow" style="margin-bottom:10px">Workspace</div>
+                    <div class="nav-links">
+                        <a href="/home" class="nav-link" data-page-link="/home">
+                            <span class="nav-link-icon">🏠</span> Home
+                        </a>
+                        <a href="/profile" class="nav-link" data-page-link="/profile">
+                            <span class="nav-link-icon">👤</span> Profile
+                        </a>
+                        <a href="/settings" class="nav-link" data-page-link="/settings">
+                            <span class="nav-link-icon">⚙️</span> Settings
+                        </a>
+                        <div class="nav-divider"></div>
+                        <a href="/dashboard" class="nav-link active" data-page-link="/dashboard" data-open-dashboard>
+                            <span class="nav-link-icon">📊</span> Dashboard
+                        </a>
+                        <div class="nav-divider"></div>
+                        <button class="nav-link" data-logout>
+                            <span class="nav-link-icon">🚪</span> Logout
+                        </button>
+                    </div>
+                </nav>
+
+                <!-- Score Badge -->
+                <div class="panel panel-compact score-badge">
+                    <div class="score-value-large" data-slot="anomaly-score">0.00</div>
+                    <div class="score-sub">Anomaly Score <span style="font-size:0.8em; color:var(--text-soft);">(Raw: <span data-slot="raw-anomaly-score">0.00</span>)</span></div>
+                    <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+                        <span data-slot="risk-level" class="pill pill-risk risk-low">LOW</span>
+                        <span data-slot="detected-state" class="pill pill-state state-observing">OBSERVING</span>
+                    </div>
+                </div>
+
+                <!-- Status Panel -->
+                <div class="panel panel-compact">
+                    <h3>Session Metrics</h3>
+                    <div class="status-row">
+                        <span class="status-label">Session</span>
+                        <span class="status-value" data-slot="session-id">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Total Events</span>
+                        <span class="status-value" data-slot="processed-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Window Size</span>
+                        <span class="status-value" data-slot="window-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Combined Score</span>
+                        <span class="status-value" data-slot="combined-score">0.00</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Context Dev.</span>
+                        <span class="status-value" data-slot="context-deviation">0.00</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Readiness</span>
+                        <span class="status-value" data-slot="score-ready">WARMING_UP</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Action</span>
+                        <span class="status-value" data-slot="risk-action">ALLOW_SESSION</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Active Params</span>
+                        <span class="status-value" data-slot="active-params">—/23</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Research</span>
+                        <span data-slot="research-mode" class="pill pill-research mode-live">LIVE</span>
+                    </div>
+                </div>
+
+                <!-- Context Info -->
+                <div class="panel panel-compact">
+                    <h3>Session Context</h3>
+                    <div class="status-row">
+                        <span class="status-label">Device</span>
+                        <span class="status-value" data-slot="device-fingerprint">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">IP</span>
+                        <span class="status-value" data-slot="context-ip">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Browser</span>
+                        <span class="status-value" data-slot="context-browser">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">OS</span>
+                        <span class="status-value" data-slot="context-os">—</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ── Main Content ── -->
+            <div class="monitored-main">
+
+                <!-- MFA Banner -->
+                <div data-mfa-banner class="banner">
+                    ⚠️ HIGH-RISK session detected — adaptive response: <strong>TRIGGER MFA</strong> before sensitive actions.
+                </div>
+
+                <!-- Dashboard Header -->
+                <section class="panel">
+                    <span class="eyebrow">Analyst Dashboard</span>
+                    <h1>Live Behavioral Monitoring</h1>
+                    <p>Real-time anomaly detection graph, event timeline, and explainability panel. All behavioral signals flow through the rolling-window pipeline and get scored continuously.</p>
+                    <p class="muted-copy" data-slot="score-readiness-detail">Waiting for minimum event threshold</p>
+                </section>
+
+                <!-- Real-time Anomaly Score Graph -->
+                <section class="panel graph-container">
+                    <div class="panel-heading">
+                        <h2>Anomaly Score History</h2>
+                        <div class="graph-legend">
+                            <span><span class="legend-dot combined"></span> Combined Score</span>
+                            <span><span class="legend-dot anomaly"></span> Anomaly Score</span>
+                        </div>
+                    </div>
+                    <div id="score-graph">
+                        <div class="graph-empty">No assessments yet. Interact with workspace pages to generate behavioral events.</div>
+                    </div>
+                </section>
+
+                <!-- Metrics Grid -->
+                <section class="panel">
+                    <h2>Score Breakdown</h2>
+                    <div class="metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">Anomaly Score</div>
+                            <div class="metric-value" data-slot="anomaly-score">0.0000</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Combined Score</div>
+                            <div class="metric-value" data-slot="combined-score">0.0000</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Context Deviation</div>
+                            <div class="metric-value" data-slot="context-deviation">0.0000</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Risk Level</div>
+                            <div data-slot="risk-level" class="metric-value pill pill-risk risk-low">LOW</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Detected State</div>
+                            <div data-slot="detected-state" class="metric-value pill pill-state state-observing">OBSERVING</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Event Count</div>
+                            <div class="metric-value" data-slot="event-count">0</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Explanation Panel -->
+                <section class="panel explanation-panel">
+                    <h2>Why Flagged — Explanation Panel</h2>
+                    <p class="muted-copy">Explanations are generated by the risk engine based on feature deviations, not from semantic analysis. When the anomaly score crosses thresholds, the top contributing features are surfaced.</p>
+                    <ul data-slot="explanations" class="explanation-list">
+                        <li>No explanation available yet.</li>
+                    </ul>
+                    <h3 style="margin-top:12px">Top Feature Deviations</h3>
+                    <ul data-slot="top-features" class="top-features-list">
+                        <li>Feature deviations will appear after scoring becomes active.</li>
+                    </ul>
+                </section>
+
+                <!-- Event Timeline -->
+                <section class="panel">
+                    <div class="panel-heading">
+                        <h2>Event Timeline</h2>
+                        <span class="eyebrow eyebrow-soft">Last 20 Events</span>
+                    </div>
+                    <ul id="event-timeline" class="event-timeline">
+                        <li>No event timeline yet.</li>
+                    </ul>
+                </section>
+
+                <!-- Research Note -->
+                <section class="note-panel">
+                    <strong data-slot="research-label">Live user observation</strong>
+                    <p data-slot="research-note">
+                        Analyst annotation only. The model receives behavior and context, not this label.
+                    </p>
+                </section>
+
+                <!-- Scenario Simulation -->
+                <section class="panel">
+                    <h2>Research Controls</h2>
+                    <p class="muted-copy">
+                        Replay synthetic behavioral patterns. The backend is <strong>not</strong> told which label you choose —
+                        it infers risk from the event stream and context only.
+                    </p>
+                    <div class="scenario-grid" style="margin-top:8px">
+                        <button data-simulate="NORMAL" class="button-secondary">▶ Normal Replay</button>
+                        <button data-simulate="BOT" class="button-danger">🤖 BOT Attack</button>
+                        <button data-simulate="HUMAN" class="button-danger">🧑‍💻 Human Attack</button>
+                        <button data-simulate="FAST" class="button-danger">⚡ Fast Attack</button>
+                    </div>
+                </section>
+
+                <!-- ══ EXPERIMENT CONTROLS PANEL ══ -->
+                <section class="panel experiment-panel" id="experiment-controls">
+                    <span class="eyebrow">Research Framework</span>
+                    <h2>Feature Toggle Experiment Controls</h2>
+                    <p class="muted-copy">
+                        Enable or disable individual behavioral parameters to run ablation studies, single-feature tests,
+                        or combination experiments. Changes take effect on the next event batch — no restart required.
+                    </p>
+
+                    <!-- Active feature coverage badge + bar -->
+                    <div class="active-badge" id="active-badge">
+                        <span class="active-badge-dot"></span>
+                        <span id="active-count-label">Loading…</span>
+                    </div>
+                    <div class="coverage-bar-wrap">
+                        <div class="coverage-bar" id="coverage-bar" style="width:100%"></div>
+                    </div>
+
+                    <!-- Toggle groups (populated by JS) -->
+                    <div id="toggle-groups"></div>
+
+                    <!-- Action bar -->
+                    <div class="toggle-actions">
+                        <button class="btn-apply" id="btn-apply-toggles">Apply Configuration</button>
+                        <button class="btn-preset" id="btn-preset-all">Enable All</button>
+                        <button class="btn-preset" id="btn-preset-minimal">Minimal (mouse + keystroke)</button>
+                        <button class="btn-preset" id="btn-preset-keystroke">Keystroke Only</button>
+                        <button class="btn-preset" id="btn-preset-mouse">Mouse Only</button>
+                        <span class="toggle-save-note">Saved to data/feature_toggles.json</span>
+                    </div>
+                    <div id="toggle-status"></div>
+                </section>
+
+                <!-- ══ EXPERIMENT LOG PANEL ══ -->
+                <section class="panel" id="experiment-log-panel">
+                    <span class="eyebrow">Research Output</span>
+                    <h2>Experiment Log</h2>
+                    <p class="muted-copy">
+                        Each row is one risk assessment. Records which features were active, the extracted values,
+                        and the resulting decision. Use <code>GET /api/v1/experiment/log</code> for full export.
+                    </p>
+                    <div class="exp-log-controls">
+                        <button class="btn-refresh-log" id="btn-refresh-log">↻ Refresh</button>
+                        <span style="font-size:0.75rem;color:var(--text-muted,#8892a4)" id="exp-log-count"></span>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="exp-log-table" id="exp-log-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Session</th>
+                                    <th>Active</th>
+                                    <th>Anomaly</th>
+                                    <th>Combined</th>
+                                    <th>Risk</th>
+                                    <th>Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exp-log-body">
+                                <tr><td colspan="7" class="exp-empty">No experiment records yet. Run a scenario to generate data.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeDashboard } from "./session-app.js";
+        initializeDashboard();
+    </script>
+</body>
+</html>

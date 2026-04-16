@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — ATO Behavioral Biometrics</title>
+    <meta name="description" content="Security settings page with device trust and MFA configuration, monitored by behavioral biometrics.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="page-shell">
+        <div class="monitored-layout fade-in">
+
+            <!-- ── Sidebar ── -->
+            <aside class="monitored-sidebar">
+                <nav class="panel panel-compact">
+                    <div class="eyebrow" style="margin-bottom:10px">Workspace</div>
+                    <div class="nav-links">
+                        <a href="/home" class="nav-link" data-page-link="/home">
+                            <span class="nav-link-icon">🏠</span> Home
+                        </a>
+                        <a href="/profile" class="nav-link" data-page-link="/profile">
+                            <span class="nav-link-icon">👤</span> Profile
+                        </a>
+                        <a href="/settings" class="nav-link active" data-page-link="/settings">
+                            <span class="nav-link-icon">⚙️</span> Settings
+                        </a>
+                        <div class="nav-divider"></div>
+                        <a href="/dashboard" class="nav-link" data-page-link="/dashboard" data-open-dashboard>
+                            <span class="nav-link-icon">📊</span> Dashboard
+                        </a>
+                        <div class="nav-divider"></div>
+                        <button class="nav-link" data-logout>
+                            <span class="nav-link-icon">🚪</span> Logout
+                        </button>
+                    </div>
+                </nav>
+
+                <!-- Score Badge -->
+                <div class="panel panel-compact score-badge">
+                    <div class="score-value-large" data-slot="anomaly-score">0.00</div>
+                    <div class="score-sub">Anomaly Score <span style="font-size:0.8em; color:var(--text-soft);">(Raw: <span data-slot="raw-anomaly-score">0.00</span>)</span></div>
+                    <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+                        <span data-slot="risk-level" class="pill pill-risk risk-low">LOW</span>
+                        <span data-slot="detected-state" class="pill pill-state state-observing">OBSERVING</span>
+                    </div>
+                </div>
+
+                <!-- Status Panel -->
+                <div class="panel panel-compact">
+                    <h3>Session Info</h3>
+                    <div class="status-row">
+                        <span class="status-label">Session</span>
+                        <span class="status-value" data-slot="session-id">—</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Events</span>
+                        <span class="status-value" data-slot="processed-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Window</span>
+                        <span class="status-value" data-slot="window-events">0</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Score</span>
+                        <span class="status-value" data-slot="score-ready">WARMING_UP</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Research</span>
+                        <span data-slot="research-mode" class="pill pill-research mode-live">LIVE</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ── Main Content ── -->
+            <div class="monitored-main">
+
+                <!-- MFA Banner -->
+                <div data-mfa-banner class="banner">
+                    ⚠️ HIGH-RISK session detected — adaptive response: <strong>TRIGGER MFA</strong> before sensitive actions.
+                </div>
+
+                <!-- Security Settings -->
+                <section class="panel">
+                    <h1>Security Settings</h1>
+                    <p>Manage device trust, MFA preferences, and recovery options. Typing in these fields feeds behavioral signals to the anomaly detector.</p>
+                </section>
+
+                <!-- Device Trust -->
+                <section class="panel">
+                    <h2>Device Trust</h2>
+                    <div class="content-card">
+                        <h3>Register Trusted Device</h3>
+                        <form class="stack" onsubmit="event.preventDefault()">
+                            <div class="form-grid">
+                                <label>
+                                    Device Alias
+                                    <input name="device_alias" type="text" placeholder="e.g. trusted-windows-station" autocomplete="off">
+                                </label>
+                                <label>
+                                    Device Type
+                                    <select name="device_type">
+                                        <option value="desktop" selected>Desktop</option>
+                                        <option value="laptop">Laptop</option>
+                                        <option value="mobile">Mobile</option>
+                                        <option value="tablet">Tablet</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit">Register Device</button>
+                                <button type="button" id="load-device-template" class="button-ghost">Fill Template</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="content-card" style="margin-top:14px">
+                        <h3>Current Trusted Devices</h3>
+                        <div class="info-grid" style="margin-top:8px">
+                            <div class="info-item">
+                                <div class="metric-label">Device</div>
+                                <div class="metric-value" data-slot="device-fingerprint">—</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="metric-label">IP Address</div>
+                                <div class="metric-value" data-slot="context-ip">—</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="metric-label">Browser</div>
+                                <div class="metric-value" data-slot="context-browser">—</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="metric-label">OS</div>
+                                <div class="metric-value" data-slot="context-os">—</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- MFA Configuration -->
+                <section class="panel">
+                    <h2>Multi-Factor Authentication</h2>
+                    <div class="content-card">
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                <strong>Enable MFA</strong>
+                                <span>Require a second factor on every login from an untrusted device.</span>
+                            </div>
+                            <button class="toggle-switch active" id="toggle-mfa" type="button" aria-pressed="true"></button>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                <strong>Adaptive MFA</strong>
+                                <span>Only trigger MFA when the behavioral anomaly score exceeds the HIGH threshold.</span>
+                            </div>
+                            <button class="toggle-switch active" id="toggle-adaptive" type="button" aria-pressed="true"></button>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                <strong>Session Lock on Risk</strong>
+                                <span>Automatically lock the session if the risk engine returns TRIGGER_MFA.</span>
+                            </div>
+                            <button class="toggle-switch" id="toggle-session-lock" type="button" aria-pressed="false"></button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Recovery Settings -->
+                <section class="panel">
+                    <h2>Recovery</h2>
+                    <div class="content-card">
+                        <form class="stack" onsubmit="event.preventDefault()">
+                            <label>
+                                Recovery Email
+                                <input name="recovery_email" type="email" placeholder="backup@email.com" autocomplete="email">
+                            </label>
+                            <label>
+                                Recovery Phone
+                                <input name="recovery_phone" type="tel" placeholder="+62 xxx xxxx" autocomplete="tel">
+                            </label>
+                            <div class="form-actions">
+                                <button type="submit">Update Recovery</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Scenario Simulation -->
+                <section class="panel">
+                    <h2>Research Controls</h2>
+                    <p class="muted-copy">Replay synthetic behavioral patterns. The backend is <strong>not</strong> told which label you choose — it infers risk from the event stream.</p>
+                    <div class="scenario-grid" style="margin-top:8px">
+                        <button data-simulate="NORMAL" class="button-secondary">▶ Normal Replay</button>
+                        <button data-simulate="BOT" class="button-danger">🤖 BOT Attack</button>
+                        <button data-simulate="HUMAN" class="button-danger">🧑‍💻 Human Attack</button>
+                        <button data-simulate="FAST" class="button-danger">⚡ Fast Attack</button>
+                    </div>
+                </section>
+
+                <!-- Explanation Panel -->
+                <section class="panel explanation-panel">
+                    <h2>Why Flagged</h2>
+                    <ul data-slot="explanations" class="explanation-list">
+                        <li>No explanation available yet.</li>
+                    </ul>
+                    <h3 style="margin-top:8px">Top Feature Deviations</h3>
+                    <ul data-slot="top-features" class="top-features-list">
+                        <li>Feature deviations will appear after scoring becomes active.</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeMonitoredPage } from "./session-app.js";
+        initializeMonitoredPage("/settings");
+
+        // Toggle switch interaction (cosmetic — behavioral events captured by logger)
+        document.querySelectorAll(".toggle-switch").forEach((toggle) => {
+            toggle.addEventListener("click", () => {
+                toggle.classList.toggle("active");
+                toggle.setAttribute("aria-pressed", String(toggle.classList.contains("active")));
+            });
+        });
+    </script>
+</body>
+</html>

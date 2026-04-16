@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATO Behavioral Biometrics Research Prototype</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-body">
+    <main class="page-shell">
+        <section class="hero hero-login">
+            <div class="hero-copy panel hero-panel">
+                <span class="eyebrow">Research Prototype</span>
+                <h1>Detect account takeover after login by watching behavior, not passwords.</h1>
+                <p class="lead">
+                    This Flask prototype captures login typing dynamics, mouse trajectory, click hesitation,
+                    page dwell time, and cross-page navigation before scoring each session with rolling-window anomaly detection.
+                </p>
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <h2>Behavioral signals</h2>
+                        <p>Keystroke intervals, key hold time, mouse movement variance, and dwell time per page.</p>
+                    </article>
+                    <article class="feature-card">
+                        <h2>Research control</h2>
+                        <p>Replay normal baseline or BOT, HUMAN, and FAST attacker traces from the analyst dashboard.</p>
+                    </article>
+                    <article class="feature-card">
+                        <h2>Adaptive response</h2>
+                        <p>Sessions can stay low risk, be monitored, or trigger MFA when the pattern becomes suspicious.</p>
+                    </article>
+                </div>
+            </div>
+
+            <div class="panel login-panel">
+                <div class="panel-heading">
+                    <span class="eyebrow eyebrow-soft">Monitored Login</span>
+                    <div class="research-pill-wrap">
+                        <div data-slot="research-mode" class="pill pill-research">LIVE</div>
+                    </div>
+                </div>
+                <h2>Start a monitored session</h2>
+                <p class="muted-copy">
+                    Type naturally in the fields below. Those pre-auth events are bootstrapped into the session so the model can
+                    learn from authentic login behavior instead of starting from an empty stream.
+                </p>
+
+                <form id="login-form" class="stack">
+                    <label>
+                        Username
+                        <input id="user-id" name="user_id" value="alice" autocomplete="username" required>
+                    </label>
+
+                    <label>
+                        Password
+                        <input id="password" name="password" type="password" value="hunter2-demo" autocomplete="current-password" required>
+                    </label>
+
+                    <button type="submit">Login And Enter Monitored Workspace</button>
+                </form>
+
+                <div class="note-panel">
+                    <strong data-slot="research-label">Live user observation</strong>
+                    <p data-slot="research-note">
+                        Analyst annotation only. The model still receives only behavior and context.
+                    </p>
+                </div>
+
+                <pre id="session-preview" class="preview compact-preview"></pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- Baseline Enrollment Modal -->
+    <div id="baseline-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Baseline Enrollment</h2>
+            <p class="muted-copy">Before continuing, we need to capture your baseline behavior. Please follow the instructions below:</p>
+            
+            <label>1. Scroll down to the bottom of the container below:</label>
+            <div id="baseline-scroll-container" class="baseline-scroll-container">
+                <div class="baseline-scroll-content">
+                    Start scrolling...
+                    <br><br><br><br><br><br><br><br><br><br>
+                    Keep going...
+                    <br><br><br><br><br><br><br><br><br><br>
+                    Almost there...
+                    <br><br><br><br><br><br><br><br><br><br>
+                    End of container.
+                </div>
+            </div>
+
+            <label>2. Type the following sentence exactly as it appears:</label>
+            <div class="baseline-typing-target" id="baseline-text-target">The quick brown fox jumps over the lazy dog.</div>
+            <input type="text" id="baseline-typing-input" placeholder="Type the sentence here..." autocomplete="off">
+
+            <div class="modal-actions">
+                <button type="button" id="baseline-submit-btn" disabled>Complete Enrollment</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeLoginPage } from "./session-app.js";
+
+        initializeLoginPage();
+    </script>
+</body>
+</html>
