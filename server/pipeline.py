@@ -155,7 +155,7 @@ class StreamingRiskPipeline:
         active_count = len(active_params)
 
         if window_event_count >= MIN_EVENTS_FOR_SCORING:
-            prediction = self.model_service.predict(features)
+            prediction = self.model_service.predict(state.context.user_id, features)
             anomaly_score = prediction.anomaly_score
             raw_anomaly_score = prediction.raw_score
             feature_deviations = prediction.feature_deviations

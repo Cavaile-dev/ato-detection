@@ -194,7 +194,7 @@ def _extract_page_dwell_times(events: list[BehaviorEvent]) -> list[float]:
 # Named feature extraction functions (one per toggle parameter)
 # ---------------------------------------------------------------------------
 
-def getDwellTime(events: list[BehaviorEvent]) -> float:
+def getDwellTime(events: list[BehaviorEvent]) -> tuple[float, float, float]:
     """
     Dwell time = mean duration a key is physically held down.
     WHY: Humans hold keys for 60-180 ms with natural variance; bots are
@@ -202,10 +202,10 @@ def getDwellTime(events: list[BehaviorEvent]) -> float:
     TOGGLES: 'dwell_time' → model column 'key_hold_time_mean'
     """
     _, hold_times = _extract_typing_metrics(events)
-    return safe_mean(hold_times)
+    return safe_mean(hold_times), safe_variance(hold_times), safe_std(hold_times)
 
 
-def getFlightTime(events: list[BehaviorEvent]) -> float:
+def getFlightTime(events: list[BehaviorEvent]) -> tuple[float, float, float]:
     """
     Flight time = mean interval between consecutive keystrokes.
     WHY: The rhythmic cadence of typing is a strong biometric identifier; bots
@@ -213,7 +213,7 @@ def getFlightTime(events: list[BehaviorEvent]) -> float:
     TOGGLES: 'flight_time' → model column 'typing_speed_mean' (speed = 1/interval)
     """
     typing_speeds, _ = _extract_typing_metrics(events)
-    return safe_mean(typing_speeds)
+    return safe_mean(typing_speeds), safe_variance(typing_speeds), safe_std(typing_speeds)
 
 
 def getTypingConsistency(events: list[BehaviorEvent]) -> float:
@@ -253,7 +253,7 @@ def getMouseTrajectory(events: list[BehaviorEvent]) -> float:
     return safe_mean(velocities)
 
 
-def getMouseVelocity(events: list[BehaviorEvent]) -> tuple[float, float]:
+def getMouseVelocity(events: list[BehaviorEvent]) -> tuple[float, float, float]:
     """
     Mouse velocity = (mean velocity, velocity variance).
     WHY: Bots move at constant superhuman speeds with zero variance; humans
@@ -261,7 +261,7 @@ def getMouseVelocity(events: list[BehaviorEvent]) -> tuple[float, float]:
     TOGGLES: 'mouse_velocity' → 'mouse_velocity_mean', 'mouse_velocity_variance'
     """
     velocities, _ = _extract_mouse_metrics(events)
-    return safe_mean(velocities), safe_variance(velocities)
+    return safe_mean(velocities), safe_variance(velocities), safe_std(velocities)
 
 
 def getMouseAcceleration(events: list[BehaviorEvent]) -> float:
@@ -274,13 +274,14 @@ def getMouseAcceleration(events: list[BehaviorEvent]) -> float:
     return safe_variance(accelerations)
 
 
-def getClickInterval(events: list[BehaviorEvent]) -> float:
+def getClickInterval(events: list[BehaviorEvent]) -> tuple[float, float]:
     """
     Click interval = standard deviation of inter-click durations.
     WHY: A near-zero std indicates programmatic, robotic clicking patterns.
     TOGGLES: 'click_interval' → model column 'click_interval_std'
     """
-    return safe_std(_extract_click_intervals(events))
+    intervals = _extract_click_intervals(events)
+    return safe_mean(intervals), safe_std(intervals)
 
 
 def getScrollBehavior(events: list[BehaviorEvent]) -> float:
@@ -353,13 +354,14 @@ def getNavigationPattern(state: SessionState, events: list[BehaviorEvent]) -> tu
     return shannon_entropy(nav_seq), _page_transition_pattern(state, nav_seq)
 
 
-def getTimePerPage(events: list[BehaviorEvent]) -> float:
+def getTimePerPage(events: list[BehaviorEvent]) -> tuple[float, float]:
     """
     Time per page = mean dwell time across visited pages (seconds).
     WHY: Bots rush through pages; legitimate users spend time reading content.
     TOGGLES: 'time_per_page' → model column 'dwell_time_per_page'
     """
-    return safe_mean(_extract_page_dwell_times(events))
+    dwells = _extract_page_dwell_times(events)
+    return safe_mean(dwells), safe_variance(dwells)
 
 
 def getActionSequence(state: SessionState, events: list[BehaviorEvent]) -> float:
@@ -372,7 +374,7 @@ def getActionSequence(state: SessionState, events: list[BehaviorEvent]) -> float
     return shannon_entropy(nav_seq)
 
 
-def getDecisionLatency(events: list[BehaviorEvent]) -> float:
+def getDecisionLatency(events: list[BehaviorEvent]) -> tuple[float, float]:
     """
     Decision latency = mean pause (seconds) immediately before form submission or
     significant clicks — measured via the hesitation metric on click events.
@@ -384,10 +386,10 @@ def getDecisionLatency(events: list[BehaviorEvent]) -> float:
         for e in events
         if e.event_type == "click" and e.hesitation is not None
     ]
-    return safe_mean(hesitations)
+    return safe_mean(hesitations), safe_variance(hesitations)
 
 
-def getHesitation(events: list[BehaviorEvent]) -> float:
+def getHesitation(events: list[BehaviorEvent]) -> tuple[float, float]:
     """
     Hesitation = mean micro-pause duration across all interaction events.
     WHY: Hesitation patterns encode cognitive load; attackers acting from scripts
@@ -399,34 +401,36 @@ def getHesitation(events: list[BehaviorEvent]) -> float:
         for e in events
         if e.hesitation is not None and e.hesitation >= 0
     ]
-    return safe_mean(hesitations)
+    return safe_mean(hesitations), safe_variance(hesitations)
 
 
 def getTabSwitching(events: list[BehaviorEvent]) -> float:
     """
     Tab switching = frequency of focus-lost events indicating tab/window changes.
     WHY: Attackers copy-pasting credentials often switch tabs rapidly.
-    TOGGLES: 'tab_switching' → reserved (not yet collected); always returns 0.0
     """
-    return 0.0
+    tab_switches = [e for e in events if e.event_type == "tab_switch"]
+    return float(len(tab_switches))
 
 
 def getIdleTime(events: list[BehaviorEvent]) -> float:
     """
     Idle time = mean duration of inactivity gaps between events (seconds).
     WHY: Natural users have irregular idle periods; automated scripts have none.
-    TOGGLES: 'idle_time' → reserved (not yet collected); always returns 0.0
     """
-    return 0.0
+    idle_times = [float(e.metadata.get("idle_time", 0.0)) for e in events if e.event_type == "idle"]
+    if not idle_times:
+        return 0.0
+    return safe_mean(idle_times)
 
 
 def getClipboardUsage(events: list[BehaviorEvent]) -> float:
     """
     Clipboard usage = fraction of text-field input sourced from paste events.
     WHY: Bots / credential stuffers frequently paste rather than type credentials.
-    TOGGLES: 'clipboard_usage' → reserved (not yet collected); always returns 0.0
     """
-    return 0.0
+    clipboard = [e for e in events if e.event_type == "clipboard"]
+    return float(len(clipboard))
 
 
 # ---------------------------------------------------------------------------
@@ -454,16 +458,16 @@ def extract_features(
     events = sorted(state.events, key=lambda event: event.timestamp)
 
     # --- call each named extractor once (cheap; shares raw data) ---
-    _mv_mean, _mv_var = getMouseVelocity(events)
+    _mv_mean, _mv_var, _mv_std = getMouseVelocity(events)
     _ma_var            = getMouseAcceleration(events)
-    _ci_std            = getClickInterval(events)
-    _ft                = getFlightTime(events)
+    _ci_mean, _ci_std   = getClickInterval(events)
+    _ft_mean, _ft_var, _ft_std = getFlightTime(events)
     _tc                = getTypingConsistency(events)
-    _dt                = getDwellTime(events)
+    _dt_mean, _dt_var, _dt_std = getDwellTime(events)
     _nav_entropy, _nav_transition = getNavigationPattern(state, events)
-    _tpp               = getTimePerPage(events)
-    _dec_lat           = getDecisionLatency(events)
-    _hes               = getHesitation(events)
+    _tpp_mean, _tpp_var = getTimePerPage(events)
+    _dec_lat_mean, _dec_lat_var = getDecisionLatency(events)
+    _hes_mean, _hes_var = getHesitation(events)
     _scroll            = getScrollBehavior(events)
     _err_rate          = getErrorRate(events)
     _tab               = getTabSwitching(events)
@@ -474,8 +478,8 @@ def extract_features(
 
     # --- build raw_values dict for experiment logger ---
     raw_values: dict[str, float | None] = {
-        "dwell_time":          _dt          if fm.is_enabled("dwell_time")          else None,
-        "flight_time":         _ft          if fm.is_enabled("flight_time")          else None,
+        "dwell_time":          _dt_mean     if fm.is_enabled("dwell_time")          else None,
+        "flight_time":         _ft_mean     if fm.is_enabled("flight_time")          else None,
         "typing_consistency":  _tc          if fm.is_enabled("typing_consistency")   else None,
         "error_rate":          _err_rate    if fm.is_enabled("error_rate")           else None,
         "mouse_trajectory":    _mv_mean     if fm.is_enabled("mouse_trajectory")     else None,
@@ -490,13 +494,13 @@ def extract_features(
         "login_time":          state.context.login_hour()        if fm.is_enabled("login_time")         else None,
         "session_duration":    getSessionDuration(state),
         "navigation_pattern":  _nav_entropy if fm.is_enabled("navigation_pattern")  else None,
-        "time_per_page":       _tpp         if fm.is_enabled("time_per_page")        else None,
+        "time_per_page":       _tpp_mean    if fm.is_enabled("time_per_page")        else None,
         "action_sequence":     _nav_entropy if fm.is_enabled("action_sequence")      else None,
-        "decision_latency":    _dec_lat     if fm.is_enabled("decision_latency")     else None,
-        "hesitation":          _hes         if fm.is_enabled("hesitation")           else None,
-        "tab_switching":       None,        # reserved
-        "idle_time":           None,        # reserved
-        "clipboard_usage":     None,        # reserved
+        "decision_latency":    _dec_lat_mean if fm.is_enabled("decision_latency")     else None,
+        "hesitation":          _hes_mean    if fm.is_enabled("hesitation")           else None,
+        "tab_switching":       _tab         if fm.is_enabled("tab_switching")        else None,
+        "idle_time":           _idle        if fm.is_enabled("idle_time")            else None,
+        "clipboard_usage":     _clip        if fm.is_enabled("clipboard_usage")      else None,
     }
 
     # --- build model_features dict with zero-fill for disabled params ---
@@ -515,14 +519,28 @@ def extract_features(
     computed: dict[str, float] = {
         "mouse_velocity_mean":       _mv_mean,
         "mouse_velocity_variance":   _mv_var,
+        "mouse_velocity_std":        _mv_std,
         "mouse_acceleration_variance": _ma_var,
+        "click_interval_mean":       _ci_mean,
         "click_interval_std":        _ci_std,
-        "typing_speed_mean":         _ft,
-        "typing_speed_variance":     _tc,
-        "key_hold_time_mean":        _dt,
+        "typing_speed_mean":         _ft_mean,
+        "typing_speed_variance":     _ft_var,
+        "typing_speed_std":          _ft_std,
+        "key_hold_time_mean":        _dt_mean,
+        "key_hold_time_variance":    _dt_var,
+        "key_hold_time_std":         _dt_std,
         "navigation_entropy":        _nav_entropy,
         "page_transition_pattern":   _nav_transition,
-        "dwell_time_per_page":       _tpp,
+        "dwell_time_per_page_mean":  _tpp_mean,
+        "dwell_time_per_page_variance": _tpp_var,
+        "decision_latency_mean":     _dec_lat_mean,
+        "decision_latency_variance": _dec_lat_var,
+        "error_rate":                _err_rate,
+        "hesitation_mean":           _hes_mean,
+        "hesitation_variance":       _hes_var,
+        "tab_switch_count":          _tab,
+        "idle_mean":                 _idle,
+        "clipboard_count":           _clip,
     }
 
     model_features: dict[str, float] = {

@@ -21,14 +21,27 @@ EXPERIMENT_LOG_PATH = DATA_DIR / "experiment_log.jsonl"   # per-assessment exper
 FEATURE_COLUMNS = [
     "mouse_velocity_mean",
     "mouse_velocity_variance",
+    "mouse_velocity_std",
     "mouse_acceleration_variance",
+    "click_interval_mean",
     "click_interval_std",
     "typing_speed_mean",
     "typing_speed_variance",
+    "typing_speed_std",
     "key_hold_time_mean",
+    "key_hold_time_variance",
+    "key_hold_time_std",
     "navigation_entropy",
     "page_transition_pattern",
-    "dwell_time_per_page",
+    "dwell_time_per_page_mean",
+    "dwell_time_per_page_variance",
+    "decision_latency_mean",
+    "decision_latency_variance",
+    "error_rate",
+    "hesitation_variance",
+    "tab_switch_count",
+    "idle_mean",
+    "clipboard_count"
 ]
 
 MIN_EVENTS_FOR_SCORING = 20

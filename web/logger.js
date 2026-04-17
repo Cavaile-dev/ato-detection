@@ -330,6 +330,7 @@ export class PreAuthBehaviorCollector extends BaseCollector {
 export class BehavioralLogger extends BaseCollector {
     constructor({
         sessionId,
+        username,
         apiBaseUrl = window.location.origin,
         flushIntervalMs = 1400,
         mouseThrottleMs = 40,
@@ -338,6 +339,7 @@ export class BehavioralLogger extends BaseCollector {
     }) {
         super({ currentPage, mouseThrottleMs });
         this.sessionId = sessionId;
+        this.username = username;
         this.apiBaseUrl = apiBaseUrl;
         this.flushIntervalMs = flushIntervalMs;
         this.onAssessment = onAssessment;
@@ -350,6 +352,11 @@ export class BehavioralLogger extends BaseCollector {
         super.start();
         this.boundHandlers.visibilitychange = () => {
             if (document.visibilityState === "hidden") {
+                this.enqueue({
+                    type: "tab_switch",
+                    timestamp: nowSeconds(),
+                    page: this.currentPage()
+                });
                 this.flush({ useBeacon: true });
             }
         };
@@ -357,6 +364,50 @@ export class BehavioralLogger extends BaseCollector {
             this.trackPageExit("pagehide");
             this.flush({ useBeacon: true });
         };
+        
+        // IDLE TRACKING
+        this.lastActivity = Date.now();
+        this.boundHandlers.activity = () => {
+            this.lastActivity = Date.now();
+        };
+        document.addEventListener("mousemove", this.boundHandlers.activity, { passive: true });
+        document.addEventListener("keydown", this.boundHandlers.activity, { passive: true });
+        document.addEventListener("click", this.boundHandlers.activity, { passive: true });
+
+        this.idleTimer = window.setInterval(() => {
+            let idle = (Date.now() - this.lastActivity) / 1000;
+            if (idle > 2) {
+                this.enqueue({
+                    type: "idle",
+                    idle_time: idle,
+                    timestamp: nowSeconds(),
+                    page: this.currentPage()
+                });
+                // Prevent continuous logging every second while idle
+                this.lastActivity = Date.now();
+            }
+        }, 1000);
+
+        // CLIPBOARD
+        this.boundHandlers.paste = () => {
+            this.enqueue({
+                type: "clipboard",
+                action: "paste",
+                timestamp: nowSeconds(),
+                page: this.currentPage()
+            });
+        };
+        this.boundHandlers.copy = () => {
+            this.enqueue({
+                type: "clipboard",
+                action: "copy",
+                timestamp: nowSeconds(),
+                page: this.currentPage()
+            });
+        };
+        document.addEventListener("paste", this.boundHandlers.paste);
+        document.addEventListener("copy", this.boundHandlers.copy);
+
         document.addEventListener("visibilitychange", this.boundHandlers.visibilitychange);
         window.addEventListener("pagehide", this.boundHandlers.pagehide);
 
@@ -370,8 +421,17 @@ export class BehavioralLogger extends BaseCollector {
             window.clearInterval(this.flushTimer);
             this.flushTimer = null;
         }
+        if (this.idleTimer) {
+            window.clearInterval(this.idleTimer);
+            this.idleTimer = null;
+        }
         document.removeEventListener("visibilitychange", this.boundHandlers.visibilitychange);
         window.removeEventListener("pagehide", this.boundHandlers.pagehide);
+        document.removeEventListener("mousemove", this.boundHandlers.activity);
+        document.removeEventListener("keydown", this.boundHandlers.activity);
+        document.removeEventListener("click", this.boundHandlers.activity);
+        document.removeEventListener("paste", this.boundHandlers.paste);
+        document.removeEventListener("copy", this.boundHandlers.copy);
         super.detach();
     }
 
@@ -388,11 +448,49 @@ export class BehavioralLogger extends BaseCollector {
         });
         const assessment = await this.flush();
         this.detach();
-        await fetch(`${this.apiBaseUrl}/api/v1/sessions/${this.sessionId}/end`, {
+        const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${this.sessionId}/end`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: this.username,
+            }),
         });
+        if (!response.ok) {
+            throw new Error("Failed to end session");
+        }
         return assessment;
+    }
+
+    async completeTransaction() {
+        if (this.ending) {
+            return null;
+        }
+        this.ending = true;
+        this.trackPageExit("transaction_pay");
+        this.enqueue({
+            type: "session_end",
+            timestamp: nowSeconds(),
+            page: this.currentPage(),
+        });
+        await this.flush();
+        this.detach();
+
+        const response = await fetch(`${this.apiBaseUrl}/api/v1/transaction/pay`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: this.username,
+                session_id: this.sessionId,
+            }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.error || "Failed to complete transaction");
+        }
+        if (payload?.assessment) {
+            this.onAssessment(payload.assessment);
+        }
+        return payload;
     }
 
     flush({ useBeacon = false } = {}) {
@@ -407,6 +505,7 @@ export class BehavioralLogger extends BaseCollector {
                 new Blob(
                     [
                         JSON.stringify({
+                            username: this.username,
                             session_id: this.sessionId,
                             events,
                         }),
@@ -431,6 +530,7 @@ export class BehavioralLogger extends BaseCollector {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+                username: this.username,
                 session_id: this.sessionId,
                 events,
             }),

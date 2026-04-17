@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction - ATO Behavioral Biometrics</title>
+    <meta name="description" content="Simple transaction page that logs behavior and closes the session after payment.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="page-shell">
+        <div class="monitored-layout fade-in">
+            <aside class="monitored-sidebar">
+                <nav class="panel panel-compact">
+                    <div class="eyebrow" style="margin-bottom:10px">Workspace</div>
+                    <div class="nav-links">
+                        <a href="/home" class="nav-link" data-page-link="/home">
+                            <span class="nav-link-icon">Home</span>
+                        </a>
+                        <a href="/profile" class="nav-link" data-page-link="/profile">
+                            <span class="nav-link-icon">Profile</span>
+                        </a>
+                        <a href="/settings" class="nav-link" data-page-link="/settings">
+                            <span class="nav-link-icon">Settings</span>
+                        </a>
+                        <a href="/transaction" class="nav-link active" data-page-link="/transaction">
+                            <span class="nav-link-icon">Pay</span> Transaction
+                        </a>
+                        <div class="nav-divider"></div>
+                        <a href="/dashboard" class="nav-link" data-page-link="/dashboard" data-open-dashboard>
+                            <span class="nav-link-icon">Dashboard</span>
+                        </a>
+                        <div class="nav-divider"></div>
+                        <button class="nav-link" data-logout>
+                            <span class="nav-link-icon">Exit</span> Logout
+                        </button>
+                    </div>
+                </nav>
+            </aside>
+
+            <div class="monitored-main">
+                <section class="panel">
+                    <span class="eyebrow">Transaction</span>
+                    <h1>Simple Payment Page</h1>
+                    <p>Clicking Pay sends the latest behavior events, stores the session summary in SQLite, and ends the monitored session.</p>
+                </section>
+
+                <section class="panel">
+                    <h2>Payment</h2>
+                    <div class="stack" style="max-width:420px">
+                        <label>
+                            Amount
+                            <input type="text" value="250000" readonly>
+                        </label>
+                        <label>
+                            Recipient
+                            <input type="text" value="Demo Merchant" readonly>
+                        </label>
+                        <button type="button" id="pay-button">Pay</button>
+                        <p id="pay-status" class="muted-copy"></p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeMonitoredPage } from "./session-app.js";
+        initializeMonitoredPage("/transaction");
+    </script>
+</body>
+</html>

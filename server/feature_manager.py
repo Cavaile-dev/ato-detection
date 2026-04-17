@@ -80,16 +80,16 @@ ALL_PARAMS: list[str] = [
 # ---------------------------------------------------------------------------
 PARAM_TO_COLUMNS: dict[str, list[str]] = {
     # Keystroke
-    "dwell_time":          ["key_hold_time_mean"],
-    "flight_time":         ["typing_speed_mean"],       # inter-key gap → speed
+    "dwell_time":          ["key_hold_time_mean", "key_hold_time_variance", "key_hold_time_std"],
+    "flight_time":         ["typing_speed_mean", "typing_speed_std"],       # inter-key gap → speed
     "typing_consistency":  ["typing_speed_variance"],
-    "error_rate":          [],                          # reserved — no model column yet
+    "error_rate":          ["error_rate"],                          # added model column
 
     # Mouse
-    "mouse_trajectory":    ["mouse_velocity_mean"],     # linearity proxy
-    "mouse_velocity":      ["mouse_velocity_mean", "mouse_velocity_variance"],
+    "mouse_trajectory":    ["mouse_velocity_mean", "mouse_velocity_std"],     # linearity proxy
+    "mouse_velocity":      ["mouse_velocity_mean", "mouse_velocity_variance", "mouse_velocity_std"],
     "mouse_acceleration":  ["mouse_acceleration_variance"],
-    "click_interval":      ["click_interval_std"],
+    "click_interval":      ["click_interval_mean", "click_interval_std"],
     "scroll_behavior":     [],                          # collected, no model column yet
 
     # Touch (mobile reserved)
@@ -104,17 +104,17 @@ PARAM_TO_COLUMNS: dict[str, list[str]] = {
 
     # Navigation
     "navigation_pattern":  ["navigation_entropy", "page_transition_pattern"],
-    "time_per_page":       ["dwell_time_per_page"],
+    "time_per_page":       ["dwell_time_per_page_mean", "dwell_time_per_page_variance"],
     "action_sequence":     ["navigation_entropy"],
 
     # Cognitive
-    "decision_latency":    [],   # captured via hesitation field; no dedicated column yet
-    "hesitation":          [],   # same — no dedicated model column yet
+    "decision_latency":    ["decision_latency_mean", "decision_latency_variance"],
+    "hesitation":          ["hesitation_mean", "hesitation_variance"],
 
     # Browser (reserved)
-    "tab_switching":       [],
-    "idle_time":           [],
-    "clipboard_usage":     [],
+    "tab_switching":       ["tab_switch_count"],
+    "idle_time":           ["idle_mean"],
+    "clipboard_usage":     ["clipboard_count"],
 }
 
 # Context-only parameters — checked by risk_engine, NOT zero-filled in features

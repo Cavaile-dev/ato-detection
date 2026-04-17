@@ -111,6 +111,20 @@ function clearSession() {
     sessionStorage.removeItem(RESEARCH_LABEL_KEY);
 }
 
+async function loginUser(username, password) {
+    const response = await fetch("/api/v1/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || "Login failed");
+    }
+    return payload;
+}
+
 function readResearchLabel() {
     return readJson(RESEARCH_LABEL_KEY, {
         mode: "LIVE",
@@ -429,6 +443,8 @@ export function initializeLoginPage() {
     async function completeLogin(payload) {
         const submitButton = form.querySelector('button[type="submit"]');
         try {
+            const password = String(new FormData(form).get("password") || "");
+            await loginUser(payload.user_id, password);
             payload.bootstrap_events = collector.finish({ nextPage: "/home" });
             const response = await startSession(payload);
             writeSession({
@@ -554,6 +570,7 @@ function renderStoredAssessment() {
 function buildLogger(session, pageKey) {
     return new BehavioralLogger({
         sessionId: session.sessionId,
+        username: session.userId,
         currentPage: () => pageKey,
         onAssessment: (assessment) => {
             if (assessment?.session_id) {
@@ -619,6 +636,38 @@ function bindDashboardLinks() {
     });
 }
 
+function bindTransactionAction(logger) {
+    const payButton = document.getElementById("pay-button");
+    const payStatus = document.getElementById("pay-status");
+    if (!payButton) {
+        return;
+    }
+
+    payButton.addEventListener("click", async () => {
+        payButton.disabled = true;
+        if (payStatus) {
+            payStatus.textContent = "Processing payment...";
+        }
+
+        try {
+            await logger.completeTransaction();
+            clearSession();
+            if (payStatus) {
+                payStatus.textContent = "Payment complete. Session ended.";
+            }
+            window.setTimeout(() => {
+                window.location.href = "/";
+            }, 800);
+        } catch (error) {
+            console.error("Failed to complete transaction", error);
+            if (payStatus) {
+                payStatus.textContent = "Payment failed. Please try again.";
+            }
+            payButton.disabled = false;
+        }
+    });
+}
+
 export function initializeMonitoredPage(pageKey) {
     const session = ensureSessionOrRedirect();
     if (!session) {
@@ -632,6 +681,7 @@ export function initializeMonitoredPage(pageKey) {
     logger.start();
     bindDashboardLinks();
     bindTextHelpers(pageKey);
+    bindTransactionAction(logger);
     bindScenarioButtons(logger, () => {
         void safeHydrateSnapshot(session);
     });
