@@ -13,7 +13,9 @@ from server.mock_data import generate_mock_dataset
 from server.model import BehavioralAnomalyModel
 from server.pipeline import StreamingRiskPipeline
 from server.train_model import train_default_model
+from server.config import DATA_DIR, FEATURE_COLUMNS
 
+REAL_FEATURES_PATH = DATA_DIR / "real_features.csv"
 
 def bootstrap_model(model_service: BehavioralAnomalyModel) -> None:
     try:
@@ -279,7 +281,115 @@ def get_experiment_log():
         "count": len(records),
         "records": records,
     })
+@app.get("/api/v1/collect/stats")
+def collect_stats():
+    """
+    GET /api/v1/collect/stats
+    
+    Get statistics about collected real sessions.
+    """
+    from server.real_data_collector import get_stats, get_session_summaries
+    
+    stats = get_stats()
+    summaries = get_session_summaries()
+    
+    return jsonify({
+        "stats": stats,
+        "sessions": [
+            {
+                "session_id": s.session_id,
+                "user_id": s.user_id,
+                "event_count": s.event_count,
+            }
+            for s in summaries[-20:]  # Last 20 sessions
+        ],
+    })
+@app.post("/api/v1/collect/generate")
+def collect_generate():
+    """
+    POST /api/v1/collect/generate
+    
+    Convert collected sessions to training dataset.
+    Saves to data/real_features.csv
+    """
+    from server.real_data_collector import collect_real_training_data, get_stats
+    
+    stats_before = get_stats()
+    df = collect_real_training_data()
+    
+    if df is None:
+        return jsonify({
+            "status": "error",
+            "message": "Not enough valid sessions to generate training data",
+            "stats": stats_before,
+        }), 400
+    
+    stats_after = get_stats()
+    
+    return jsonify({
+        "status": "success",
+        "sessions_collected": len(df),
+        "file": str(df.to_dict()),
+    })
+@app.post("/api/v1/collect/train")
+def collect_train():
+    """
+    POST /api/v1/collect/train
+    
+    1. Collect real sessions
+    2. Train model with real data
+    """
+    from server.real_data_collector import collect_real_training_data
+    from server.model import BehavioralAnomalyModel
+    
+    df = collect_real_training_data()
+    
+    if df is None:
+        return jsonify({
+            "error": "Not enough real sessions. Collect more data first.",
+        }), 400
+    
+    normal_df = df[df["label"] == 0][FEATURE_COLUMNS]
+    
+    if len(normal_df) < 10:
+        return jsonify({
+            "error": f"Need at least 10 sessions, got {len(normal_df)}",
+        }), 400
+    
+    model_service = BehavioralAnomalyModel()
+    summary = model_service.train(normal_df)
+    
+    return jsonify({
+        "status": "trained",
+        "sessions_used": len(normal_df),
+        "summary": summary,
+    })
 
+@app.post("/api/v1/collect/reset")
+def collect_reset():
+    """
+    POST /api/v1/collect/reset
+    
+    Reset everything and start fresh.
+    Deletes: real_features.csv, stream_events.jsonl
+    """
+    import os
+    
+    files_to_delete = [
+        REAL_FEATURES_PATH,
+        DATA_DIR / "stream_events.jsonl",
+    ]
+    
+    deleted = []
+    for f in files_to_delete:
+        if f.exists():
+            f.unlink()
+            deleted.append(str(f))
+    
+    return jsonify({
+        "status": "reset",
+        "deleted_files": deleted,
+    })
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
